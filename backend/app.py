@@ -22,7 +22,7 @@ def vps_engine():
     cap = cv2.VideoCapture(0) # 0 is your laptop camera
     
     if not cap.isOpened():
-        print("❌ ERROR: Could not open camera!")
+        print("ERROR: Could not open camera!")
         return
 
     # --- SETUP ARUCO (Precision Landing) ---
@@ -36,7 +36,7 @@ def vps_engine():
     # Find initial features to track
     p0 = cv2.goodFeaturesToTrack(old_gray, mask=None, maxCorners=100, qualityLevel=0.3, minDistance=7)
 
-    print("✅ VPS Engine Online. Camera active.")
+    print("VPS Engine Online. Camera active.")
 
     while True:
         ret, frame = cap.read()
@@ -112,5 +112,5 @@ if __name__ == '__main__':
     threading.Thread(target=vps_engine, daemon=True).start()
     
     # 2. Start the Flask server so the frontend can pull the data
-    print("🚀 API Server starting on http://localhost:5000/data")
+    print("API Server starting on http://localhost:5000/data")
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
