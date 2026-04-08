@@ -28,7 +28,7 @@ def vps_engine():
     # --- SETUP ARUCO (Precision Landing) ---
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
     parameters = cv2.aruco.DetectorParameters()
-    
+    parameters.adaptiveThreshConstant = 7 # Helps detect markers on bright phone screens
     # --- SETUP OPTICAL FLOW (Navigation) ---
     ret, old_frame = cap.read()
     old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
