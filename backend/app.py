@@ -4,6 +4,8 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import threading
 import time
+from ekf import SensorFusionEKF
+
 
 app = Flask(__name__)
 CORS(app) # Crucial: allows your friend's frontend to access your data
@@ -37,7 +39,7 @@ def vps_engine():
     p0 = cv2.goodFeaturesToTrack(old_gray, mask=None, maxCorners=100, qualityLevel=0.3, minDistance=7)
 
     print("VPS Engine Online. Camera active.")
-
+    ekf = SensorFusionEKF()
     while True:
         ret, frame = cap.read()
         if not ret: 
@@ -75,6 +77,14 @@ def vps_engine():
                         vps_data["x"] += round(float(diff[0]) * 0.02, 3)
                         vps_data["y"] += round(float(diff[1]) * 0.02, 3)
                         vps_data["features"] = len(good_new)
+
+                        raw_pos = [vps_data["x"], vps_data["y"], vps_data["z"]]
+                        fused_data = ekf.update(raw_pos)
+                        
+                        # Overwrite the raw data with our clean, fused data!
+                        vps_data["x"] = fused_data["fused_x"]
+                        vps_data["y"] = fused_data["fused_y"]
+                        vps_data["z"] = fused_data["fused_z"]
                         
                         # Draw the tracking lines for your local view
                         for i, (new, old) in enumerate(zip(good_new, good_old)):
