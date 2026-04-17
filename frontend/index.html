@@ -6,9 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VPS Tactical Dashboard</title>
     <style>
-        /* High-End Aerospace UI */
-        
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
         body {
             margin: 0;
             overflow: hidden;
@@ -16,8 +15,7 @@
             color: #e0e0e0;
             font-family: 'Share Tech Mono', monospace;
         }
-        /* Glassmorphism Panel */
-        
+
         #hud-panel {
             position: absolute;
             top: 20px;
@@ -32,7 +30,7 @@
             border-radius: 4px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
         }
-        
+
         h1 {
             font-size: 1.1rem;
             color: #00ffcc;
@@ -42,44 +40,43 @@
             border-bottom: 1px solid rgba(0, 255, 204, 0.2);
             padding-bottom: 12px;
         }
-        
+
         .data-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             margin-top: 20px;
         }
-        
+
         .data-box {
             background: rgba(0, 0, 0, 0.4);
             padding: 10px;
             border-radius: 4px;
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
-        
+
         .label {
             font-size: 0.75rem;
             color: #888;
             text-transform: uppercase;
         }
-        
+
         .value {
             font-size: 1.3rem;
             color: #fff;
             margin-top: 5px;
             text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
         }
-        
+
         #mode-box {
             grid-column: span 2;
             border-left: 3px solid #00ffcc;
         }
-        
+
         #eqs-box {
             grid-column: span 2;
         }
-        /* Critical Warning Overlay */
-        
+
         #critical-alert {
             position: absolute;
             top: 50%;
@@ -96,20 +93,91 @@
             pointer-events: none;
             animation: pulse 1s infinite;
         }
-        
+
         @keyframes pulse {
             0% {
                 opacity: 1;
             }
+
             50% {
                 opacity: 0.3;
             }
+
             100% {
                 opacity: 1;
             }
         }
+
+        /* Google Maps Panel */
+        #map-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10;
+            width: 340px;
+            background: rgba(10, 15, 20, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            border-right: 4px solid #00ffcc;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        #map-panel h2 {
+            font-size: 0.85rem;
+            color: #00ffcc;
+            letter-spacing: 2px;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+            padding-bottom: 8px;
+        }
+
+        #google-map {
+            width: 100%;
+            height: 260px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 255, 204, 0.25);
+            background: #0a0f14;
+        }
+
+        .gps-readout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .gps-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 8px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .gps-box .label {
+            font-size: 0.65rem;
+        }
+
+        .gps-box .value {
+            font-size: 0.95rem;
+            margin-top: 3px;
+        }
+
+        /* 3D Recon Status */
+        #recon-box {
+            grid-column: span 2;
+            border-left: 3px solid #4da6ff;
+        }
+
+        #recon-box .value {
+            color: #4da6ff;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
 </head>
 
 <body>
@@ -117,18 +185,15 @@
 
     <div id="hud-panel">
         <h1>Layered Intelligence VPS</h1>
-
         <div class="data-grid">
             <div class="data-box" id="mode-box">
                 <div class="label">Active Layer (Mode)</div>
                 <div class="value" id="ui-mode">AWAITING TELEMETRY</div>
             </div>
-
             <div class="data-box" id="eqs-box">
                 <div class="label">Environment Quality Score (EQS)</div>
                 <div class="value" id="ui-eqs">--</div>
             </div>
-
             <div class="data-box">
                 <div class="label">Lat (X)</div>
                 <div class="value" id="ui-x">0.000m</div>
@@ -145,86 +210,151 @@
                 <div class="label">Features</div>
                 <div class="value" id="ui-feat">0</div>
             </div>
+            <div class="data-box" id="recon-box">
+                <div class="label">3D Reconstruction</div>
+                <div class="value" id="ui-recon">STANDBY</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Maps Panel -->
+    <div id="map-panel">
+        <h2>GPS Tracking — Google Maps</h2>
+        <div id="google-map"></div>
+        <div class="gps-readout">
+            <div class="gps-box">
+                <div class="label">Latitude</div>
+                <div class="value" id="ui-lat">--</div>
+            </div>
+            <div class="gps-box">
+                <div class="label">Longitude</div>
+                <div class="value" id="ui-lon">--</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- SCENE SETUP ---
+        // =====================================================================
+        // THREE.JS SCENE
+        // =====================================================================
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x020202, 0.03);
+        scene.fog = new THREE.FogExp2(0x020202, 0.015);
 
-        // Map Camera
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(5, 8, 10);
         camera.lookAt(0, 0, 0);
 
-        const renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            powerPreference: "high-performance"
-        });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- THE MAPPING ENVIRONMENT ---
-        // 1. Grid with precise markings
         const gridHelper = new THREE.GridHelper(40, 40, 0x00ffcc, 0x1a1a1a);
         scene.add(gridHelper);
-
-        // 2. XYZ Coordinate Axes (Red=X, Green=Y(Alt), Blue=Z(Depth))
         const axesHelper = new THREE.AxesHelper(5);
         scene.add(axesHelper);
 
-        // --- THE QUADCOPTER DRONE MODEL ---
+        // --- DRONE MODEL ---
         const droneGroup = new THREE.Group();
-
-        // Main Body
         const bodyGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.2, 8);
-        const bodyMat = new THREE.MeshBasicMaterial({
-            color: 0x222222,
-            wireframe: true
-        });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        droneGroup.add(body);
+        const bodyMat = new THREE.MeshBasicMaterial({ color: 0x222222, wireframe: true });
+        droneGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
 
-        // Core Status Light
-        const coreGeo = new THREE.SphereGeometry(0.3, 16, 16);
-        const coreMat = new THREE.MeshBasicMaterial({
-            color: 0x00ffcc
-        });
-        const coreLight = new THREE.Mesh(coreGeo, coreMat);
-        droneGroup.add(coreLight);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+        droneGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), coreMat));
 
-        // Arms & Rotors
         const armGeo = new THREE.BoxGeometry(2.5, 0.05, 0.1);
-        const armMat = new THREE.MeshBasicMaterial({
-            color: 0x555555
-        });
+        const armMat = new THREE.MeshBasicMaterial({ color: 0x555555 });
         const arm1 = new THREE.Mesh(armGeo, armMat);
         const arm2 = new THREE.Mesh(armGeo, armMat);
         arm2.rotation.y = Math.PI / 2;
         droneGroup.add(arm1);
         droneGroup.add(arm2);
-
         scene.add(droneGroup);
 
-        // --- THE MOVEMENT TRAIL (Historical Path) ---
+        // --- MOVEMENT TRAIL ---
         const MAX_TRAIL_POINTS = 300;
         const trailGeometry = new THREE.BufferGeometry();
         const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
         trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-        const trailMaterial = new THREE.LineBasicMaterial({
-            color: 0x00ffcc,
-            linewidth: 2,
-            transparent: true,
-            opacity: 0.8
-        });
-        const trail = new THREE.Line(trailGeometry, trailMaterial);
+        const trail = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({
+            color: 0x00ffcc, linewidth: 2, transparent: true, opacity: 0.8
+        }));
         scene.add(trail);
 
-        let trailIndex = 0;
+        // =====================================================================
+        // TASK 2: 3D POINT CLOUD SYSTEM
+        // =====================================================================
+        const MAX_CLOUD_POINTS = 500000;
+        let cloudIndex = 0;
+        let totalCloudPoints = 0;
 
-        // --- DYNAMIC DATA CONNECTION ---
-        // 🚨 FRONTEND GUY: CHANGE THIS IP TO MATCH THE BACKEND TERMINAL
+        const cloudGeometry = new THREE.BufferGeometry();
+        const cloudPositions = new Float32Array(MAX_CLOUD_POINTS * 3);
+        const cloudColors = new Float32Array(MAX_CLOUD_POINTS * 3);
+        cloudGeometry.setAttribute('position', new THREE.BufferAttribute(cloudPositions, 3));
+        cloudGeometry.setAttribute('color', new THREE.BufferAttribute(cloudColors, 3));
+
+        const cloudMaterial = new THREE.PointsMaterial({
+            size: 0.04,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            sizeAttenuation: true,
+            depthWrite: false
+        });
+
+        const pointCloud = new THREE.Points(cloudGeometry, cloudMaterial);
+        scene.add(pointCloud);
+        cloudGeometry.setDrawRange(0, 0);
+
+        // --- WEBSOCKET FOR POINT CLOUD ---
+        let socket = null;
+        try {
+            socket = io('http://localhost:5000', { transports: ['websocket', 'polling'] });
+
+            socket.on('connect', () => {
+                console.log('[VPS] WebSocket connected for 3D reconstruction');
+            });
+
+            socket.on('pointcloud', (data) => {
+                if (!data || !data.positions || !data.colors) return;
+
+                const positions = data.positions;
+                const colors = data.colors;
+                const count = positions.length;
+                const posAttr = cloudGeometry.attributes.position.array;
+                const colAttr = cloudGeometry.attributes.color.array;
+
+                for (let i = 0; i < count; i++) {
+                    const idx = ((cloudIndex + i) % MAX_CLOUD_POINTS) * 3;
+                    // Map VPS coords to Three.js (x -> x, z_depth -> z, y -> altitude)
+                    posAttr[idx] = positions[i][0] * 2;
+                    posAttr[idx + 1] = positions[i][2];      // depth as Y (up)
+                    posAttr[idx + 2] = positions[i][1] * 2;
+                    // Normalize RGB from 0-255 to 0-1
+                    colAttr[idx] = colors[i][0] / 255;
+                    colAttr[idx + 1] = colors[i][1] / 255;
+                    colAttr[idx + 2] = colors[i][2] / 255;
+                }
+
+                cloudIndex = (cloudIndex + count) % MAX_CLOUD_POINTS;
+                totalCloudPoints = Math.min(totalCloudPoints + count, MAX_CLOUD_POINTS);
+
+                cloudGeometry.setDrawRange(0, totalCloudPoints);
+                cloudGeometry.attributes.position.needsUpdate = true;
+                cloudGeometry.attributes.color.needsUpdate = true;
+            });
+
+            socket.on('disconnect', () => {
+                console.log('[VPS] WebSocket disconnected');
+            });
+        } catch (e) {
+            console.warn('[VPS] WebSocket not available, 3D reconstruction disabled');
+        }
+
+        // =====================================================================
+        // DATA POLLING (REST API)
+        // =====================================================================
         const BACKEND_URL = 'http://localhost:5000/data';
 
         async function fetchVPSData() {
@@ -233,12 +363,11 @@
                 const data = await response.json();
                 updateDashboard(data);
             } catch (error) {
-                // Fails silently if backend drops, prevents UI crashing
+                // Fails silently if backend drops
             }
         }
 
         function updateDashboard(data) {
-            // Update Precise Numbers (3 decimal places)
             document.getElementById('ui-mode').innerText = data.mode || "UNKNOWN";
             document.getElementById('ui-eqs').innerText = data.eqs_status || data.eqs || "UNKNOWN";
             document.getElementById('ui-x').innerText = (data.x || 0).toFixed(3) + "m";
@@ -246,60 +375,179 @@
             document.getElementById('ui-z').innerText = (data.z || 0).toFixed(3) + "m";
             document.getElementById('ui-feat').innerText = data.features || 0;
 
-            // Map Data to 3D Space (Scale for better visualization)
+            // GPS Readout
+            if (data.current_gps_lat !== undefined) {
+                document.getElementById('ui-lat').innerText = data.current_gps_lat.toFixed(6) + "°";
+                document.getElementById('ui-lon').innerText = data.current_gps_lon.toFixed(6) + "°";
+                updateGoogleMap(data.current_gps_lat, data.current_gps_lon);
+            }
+
+            // 3D Reconstruction status
+            if (data.pointcloud_active) {
+                document.getElementById('ui-recon').innerText =
+                    "ACTIVE — " + (totalCloudPoints).toLocaleString() + " pts";
+            } else {
+                document.getElementById('ui-recon').innerText = "DISABLED";
+            }
+
+            // Drone position in 3D
             const targetX = data.x * 2;
-            const targetY = data.z; // Altitude
+            const targetY = data.z;
             const targetZ = data.y * 2;
 
-            // Smooth Drone Movement
             droneGroup.position.x += (targetX - droneGroup.position.x) * 0.15;
             droneGroup.position.y += (targetY - droneGroup.position.y) * 0.15;
             droneGroup.position.z += (targetZ - droneGroup.position.z) * 0.15;
 
-            // --- UPDATE THE TRAIL ---
+            // Trail update
             const positions = trail.geometry.attributes.position.array;
-            // Shift all points back
             for (let i = MAX_TRAIL_POINTS * 3 - 1; i >= 3; i--) {
                 positions[i] = positions[i - 3];
             }
-            // Add new point at the front
             positions[0] = droneGroup.position.x;
             positions[1] = droneGroup.position.y;
             positions[2] = droneGroup.position.z;
             trail.geometry.attributes.position.needsUpdate = true;
 
-            // --- INTELLIGENCE LOGIC (Colors & Alerts) ---
+            // Alert logic
             const alertBox = document.getElementById('critical-alert');
             const modeBox = document.getElementById('mode-box');
-
             if (data.mode === "PRECISION_LANDING") {
-                coreMat.color.setHex(0x00ff00); // Green Lock
+                coreMat.color.setHex(0x00ff00);
                 modeBox.style.borderLeftColor = "#00ff00";
                 alertBox.style.display = 'none';
             } else if (String(data.eqs_status).includes("CRITICAL")) {
-                coreMat.color.setHex(0xff0033); // Red Alert
+                coreMat.color.setHex(0xff0033);
                 modeBox.style.borderLeftColor = "#ff0033";
                 alertBox.style.display = 'block';
             } else {
-                coreMat.color.setHex(0x00ffcc); // Cyan Navigating
+                coreMat.color.setHex(0x00ffcc);
                 modeBox.style.borderLeftColor = "#00ffcc";
                 alertBox.style.display = 'none';
             }
         }
 
-        setInterval(fetchVPSData, 50); // Polling twice as fast for smoother trails
+        setInterval(fetchVPSData, 50);
 
-        // --- RENDER LOOP ---
+        // =====================================================================
+        // TASK 1: GOOGLE MAPS INTEGRATION
+        // =====================================================================
+        const ANCHOR_LAT = 28.6139;
+        const ANCHOR_LON = 77.2090;
+        let gmap = null;
+        let gmapPolyline = null;
+        let gmapMarker = null;
+        let gmapTrailCoords = [];
+
+        // Dark map styling
+        const DARK_MAP_STYLE = [
+            { elementType: "geometry", stylers: [{ color: "#0a0f14" }] },
+            { elementType: "labels.text.stroke", stylers: [{ color: "#0a0f14" }] },
+            { elementType: "labels.text.fill", stylers: [{ color: "#4a6a5a" }] },
+            { featureType: "road", elementType: "geometry", stylers: [{ color: "#1a2a20" }] },
+            { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#3a5a4a" }] },
+            { featureType: "water", elementType: "geometry", stylers: [{ color: "#05080a" }] },
+            { featureType: "poi", elementType: "geometry", stylers: [{ color: "#0d1a14" }] },
+            { featureType: "transit", stylers: [{ visibility: "off" }] }
+        ];
+
+        function initMap() {
+            const center = { lat: ANCHOR_LAT, lng: ANCHOR_LON };
+            gmap = new google.maps.Map(document.getElementById("google-map"), {
+                zoom: 19,
+                center: center,
+                mapTypeId: "roadmap",
+                styles: DARK_MAP_STYLE,
+                disableDefaultUI: true,
+                zoomControl: true,
+                gestureHandling: "greedy"
+            });
+
+            // Anchor marker
+            new google.maps.Marker({
+                position: center,
+                map: gmap,
+                title: "VPS Origin",
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 6,
+                    fillColor: "#ff6600",
+                    fillOpacity: 0.9,
+                    strokeColor: "#ff9933",
+                    strokeWeight: 2
+                }
+            });
+
+            // Live polyline trail
+            gmapPolyline = new google.maps.Polyline({
+                path: [],
+                geodesic: true,
+                strokeColor: "#00FFCC",
+                strokeOpacity: 0.9,
+                strokeWeight: 3,
+                map: gmap
+            });
+
+            // Current position marker
+            gmapMarker = new google.maps.Marker({
+                position: center,
+                map: gmap,
+                title: "Current Position",
+                icon: {
+                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 5,
+                    fillColor: "#00FFCC",
+                    fillOpacity: 1,
+                    strokeColor: "#00FFCC",
+                    strokeWeight: 1,
+                    rotation: 0
+                }
+            });
+        }
+
+        function updateGoogleMap(lat, lon) {
+            if (!gmap || !gmapPolyline || !gmapMarker) return;
+
+            const pos = { lat: lat, lng: lon };
+            gmapTrailCoords.push(pos);
+
+            // Keep trail manageable
+            if (gmapTrailCoords.length > 1000) {
+                gmapTrailCoords = gmapTrailCoords.slice(-800);
+            }
+
+            gmapPolyline.setPath(gmapTrailCoords);
+            gmapMarker.setPosition(pos);
+
+            // Pan map to follow (every 20th update to avoid jitter)
+            if (gmapTrailCoords.length % 20 === 0) {
+                gmap.panTo(pos);
+            }
+        }
+
+        // =====================================================================
+        // ORBIT CONTROLS (mouse rotate/zoom/pan)
+        // =====================================================================
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.rotateSpeed = 0.6;
+        controls.zoomSpeed = 1.0;
+        controls.panSpeed = 0.5;
+        controls.target.set(0, 1, 0);
+        controls.update();
+
+        // =====================================================================
+        // RENDER LOOP
+        // =====================================================================
         function animate() {
             requestAnimationFrame(animate);
-            // Spin the drone rotors
             droneGroup.children[2].rotation.y += 0.3;
             droneGroup.children[3].rotation.y -= 0.3;
 
-            // Slow camera pan for cinematic effect
-            camera.position.x = Math.sin(Date.now() * 0.0005) * 8;
-            camera.position.z = Math.cos(Date.now() * 0.0005) * 12;
-            camera.lookAt(droneGroup.position);
+            // Smoothly follow the drone with the orbit pivot
+            controls.target.lerp(droneGroup.position, 0.03);
+            controls.update();
 
             renderer.render(scene, camera);
         }
@@ -310,6 +558,10 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+    </script>
+
+    <!-- Google Maps API — Replace YOUR_API_KEY_HERE with a valid key -->
+    <script async defer src="AIzaSyAEGu3G8eJsGzR6QzDKu2Fjp1rjI9QfwGA">
     </script>
 </body>
 
