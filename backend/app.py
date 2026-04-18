@@ -85,7 +85,14 @@ def vps_engine():
     old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
     
     # Find initial features to track
-    p0 = cv2.goodFeaturesToTrack(old_gray, mask=None, maxCorners=100, qualityLevel=0.3, minDistance=7)
+    p0 = cv2.goodFeaturesToTrack(
+        old_gray,
+        mask=None,
+        maxCorners=300,       # Denser tracking cloud
+        qualityLevel=0.15,    # Catch more floor textures
+        minDistance=15,       # Force points to spread across the whole screen
+        blockSize=7           # Larger block size prevents points from jittering
+    )
 
     # =========================================================================
     # TASK 2: INITIALIZE DEPTH ENGINE FOR 3D RECONSTRUCTION
@@ -184,14 +191,31 @@ def vps_engine():
                         update_gps_from_local(vps_data)
                         
                         # Draw the tracking lines for your local view
+                        # --- HIGH-TECH HUD DRAWING ---
                         for i, (new, old) in enumerate(zip(good_new, good_old)):
                             a, b = new.ravel()
                             c, d = old.ravel()
-                            frame = cv2.line(frame, (int(a), int(b)), (int(c), int(d)), (0, 255, 0), 2)
-                            frame = cv2.circle(frame, (int(a), int(b)), 3, (0, 0, 255), -1)
+    
+                            # Calculate speed of this specific point
+                            distance_moved = np.sqrt((a - c)**2 + (b - d)**2)
+    
+                            # Only draw the line if the drone actually moved (filters out micro-jitter)
+                            if distance_moved > 0.5:
+                                # Draw a sleek yellow/cyan motion vector trail
+                                frame = cv2.line(frame, (int(a), int(b)), (int(c), int(d)), (255, 255, 0), 2)
+    
+                                # Draw a tactical crosshair instead of a basic circle
+                                frame = cv2.drawMarker(frame, (int(a), int(b)), (0, 255, 255), cv2.MARKER_CROSS, 10, 1)
 
             # Re-calculate features for the next loop to prevent the "white wall" drop-off
-            p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, maxCorners=100, qualityLevel=0.3, minDistance=7)
+            p0 = cv2.goodFeaturesToTrack(
+                frame_gray,
+                mask=None,
+                maxCorners=300,       # Denser tracking cloud
+                qualityLevel=0.15,    # Catch more floor textures
+                minDistance=15,       # Force points to spread across the whole screen
+                blockSize=7           # Larger block size prevents points from jittering
+            )
 
         old_gray = frame_gray.copy()
 
